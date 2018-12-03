@@ -11,13 +11,20 @@ import urllib.parse
 
 SLACK_SIGNING_SECRET = os.environ['SLACKBOT_SIGNING_SECRET']
 SLACKBOT_AUTH_TOKEN = os.environ['SLACKBOT_AUTH_TOKEN']
+STANDUPS = json.loads(os.environ['STANDUPS'])
 
 # This `app` represents your existing Flask app
 app = Flask(__name__)
 
 
-standup_updates = "nobody has replied yet."
+standup_updates = {}
 
+#TODO Make this actually support multiple stand ups.
+def _get_first_standup():
+    return STANDUPS.get('6ix')
+
+def _get_standup_questions():
+    return _get_first_standup().get('questions')
 
 # SLACK CALLBACKS
 
@@ -25,23 +32,26 @@ standup_updates = "nobody has replied yet."
 def callbacks():
     payload = json.loads(request.form.get('payload'))
     if payload.get('callback_id') == 'standup_trigger':
-       return  _open_standup_dialog(payload)
+        return  _open_standup_dialog(payload)
     if payload.get('callback_id') == 'submit_standup':
-       _save_standup_update(payload)
-       #TODO: Send a successful message!
-       return ""
+        _save_standup_update(payload)
+        _post_a_message(POST_MESSAGE_ENDPOINT, {
+            'channel': payload.get('channel').get('id'),
+            'text': "Thank you :tada:"
+        })
+        return ""
     return "Sorry, I don't Understand"
 
 
 def _save_standup_update(payload):
-    # TODO: Save these updates better
-    standup_result = ""
+    user = payload.get('user').get('id')
+    standup_result = []
     if payload.get('type') == 'dialog_submission':
         for question, answer in payload.get('submission').items():
-            standup_result = standup_result + question + ": " + (answer or '') + "\n"
-            print(standup_result)
+            if answer:
+                standup_result.append((question, answer))
         global standup_updates
-        standup_updates = standup_result
+        standup_updates[user] = standup_result
 
 def _open_standup_dialog(payload):
     trigger_id = payload.get('trigger_id')
@@ -56,7 +66,20 @@ def _open_standup_dialog(payload):
 
 
 def _post_standup_dialog(trigger_id):
-    # TODO: Make these questions configurable
+    elements = []
+    count = 0
+    for question in _get_standup_questions():
+        truncated_question = question
+        if len(truncated_question) > 24:
+            truncated_question = question[0:21] + '...'
+        elements.append({
+            "type": "textarea",
+            "label": truncated_question,
+            "hint": question,
+            "name": "question" + str(count),
+            "optional": True
+        })
+        count = count + 1
     dialog = {
         "trigger_id": trigger_id,
         "dialog": {
@@ -64,29 +87,7 @@ def _post_standup_dialog(trigger_id):
             "title": "Today's Stand up Report",
             "submit_label": "Submit",
             "notify_on_cancel": False,
-            "elements": [
-                {
-                    "type": "textarea",
-                    "label": "Yesterday",
-                    "hint": "What did you do yesterday?",
-                    "name": "yesterday",
-                    "optional": True
-                },
-                {
-                    "type": "textarea",
-                    "label": "Today",
-                    "name": "today",
-                    "hint": "What will you do today?",
-                    "optional": True
-                },
-                {
-                    "type": "textarea",
-                    "label": "Blockers",
-                    "name": "blockers",
-                    "hint": "Is anything blocking you?",
-                    "optional": True
-                }
-            ]
+            "elements": elements
         }
     }
     _post_a_message(DIALOG_OPEN_ENDPOINT, dialog)
@@ -104,8 +105,36 @@ def message(event):
     if event.get('text').lower() == 'stand up' or event.get('text').lower() == 'standup':
         _post_stand_up_message(event.get('channel'))
     if event.get('text').lower() == "print stand up":
-        data = {'channel': event.get('channel'), 'text': standup_updates}
+        _post_stand_up_report(_get_first_standup().get('channel'))
+
+
+def _post_stand_up_report(channel):
+    standup_complete_message = "<!here> Stand up is complete:\n"
+    if not len(standup_updates):
+        standup_complete_message = standup_complete_message + "I did not hear back from anyone."
+    data = {
+        'channel': channel,
+        'text': standup_complete_message
+    }
+    _post_a_message(POST_MESSAGE_ENDPOINT, data)
+
+    for user, updates in standup_updates.items():
+        username_info = "<@" + user + ">:"
+        attachments = []
+        for update in updates:
+            attachments.append(
+                {
+                    'title': update[0],
+                    'text': update[1]
+                }
+            )
+        data = {
+            'channel': channel,
+            'text': username_info,
+            'attachments': attachments
+        }
         _post_a_message(POST_MESSAGE_ENDPOINT, data)
+
 
 def _post_stand_up_message(channel):
     attachments = [
@@ -144,7 +173,6 @@ def _post_a_message(endpoint, data):
         'Authorization': 'Bearer {}'.format(SLACKBOT_AUTH_TOKEN)
     }
     r = requests.post(endpoint, json=data, headers=headers)
-    print(r.content)
 
 
 if __name__ == "__main__":
