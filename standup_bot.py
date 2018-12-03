@@ -16,6 +16,9 @@ SLACKBOT_AUTH_TOKEN = os.environ['SLACKBOT_AUTH_TOKEN']
 app = Flask(__name__)
 
 
+standup_updates = "nobody has replied yet."
+
+
 # SLACK CALLBACKS
 
 @app.route('/slack/callbacks', methods=['POST'])
@@ -23,8 +26,22 @@ def callbacks():
     payload = json.loads(request.form.get('payload'))
     if payload.get('callback_id') == 'standup_trigger':
        return  _open_standup_dialog(payload)
+    if payload.get('callback_id') == 'submit_standup':
+       _save_standup_update(payload)
+       #TODO: Send a successful message!
+       return ""
     return "Sorry, I don't Understand"
 
+
+def _save_standup_update(payload):
+    # TODO: Save these updates better
+    standup_result = ""
+    if payload.get('type') == 'dialog_submission':
+        for question, answer in payload.get('submission').items():
+            standup_result = standup_result + question + ": " + (answer or '') + "\n"
+            print(standup_result)
+        global standup_updates
+        standup_updates = standup_result
 
 def _open_standup_dialog(payload):
     trigger_id = payload.get('trigger_id')
@@ -39,6 +56,7 @@ def _open_standup_dialog(payload):
 
 
 def _post_standup_dialog(trigger_id):
+    # TODO: Make these questions configurable
     dialog = {
         "trigger_id": trigger_id,
         "dialog": {
@@ -48,22 +66,30 @@ def _post_standup_dialog(trigger_id):
             "notify_on_cancel": False,
             "elements": [
                 {
-                    "type": "text",
-                    "label": "Q1?",
-                    "name": "yesterday"
+                    "type": "textarea",
+                    "label": "Yesterday",
+                    "hint": "What did you do yesterday?",
+                    "name": "yesterday",
+                    "optional": True
                 },
                 {
-                    "type": "text",
-                    "label": "Q2?",
-                    "name": "today"
+                    "type": "textarea",
+                    "label": "Today",
+                    "name": "today",
+                    "hint": "What will you do today?",
+                    "optional": True
+                },
+                {
+                    "type": "textarea",
+                    "label": "Blockers",
+                    "name": "blockers",
+                    "hint": "Is anything blocking you?",
+                    "optional": True
                 }
             ]
         }
     }
-    headers = {'content-type' : 'application/json; charset=utf-8',
-              'Authorization' : 'Bearer {}'.format(SLACKBOT_AUTH_TOKEN)}
-    r = requests.post(DIALOG_OPEN_ENDPOINT, json=dialog, headers=headers)
-    print(r.content)
+    _post_a_message(DIALOG_OPEN_ENDPOINT, dialog)
 
 # SLACK EVENT API EVENT HANDLERS:
 
@@ -77,7 +103,9 @@ def message(event):
         return
     if event.get('text').lower() == 'stand up' or event.get('text').lower() == 'standup':
         _post_stand_up_message(event.get('channel'))
-
+    if event.get('text').lower() == "print stand up":
+        data = {'channel': event.get('channel'), 'text': standup_updates}
+        _post_a_message(POST_MESSAGE_ENDPOINT, data)
 
 def _post_stand_up_message(channel):
     attachments = [
@@ -107,9 +135,17 @@ def _post_stand_up_message(channel):
         'text': 'Are you ready to start your daily stand up?',
         'attachments': attachments
     }
-    headers = {'content-type' : 'application/json; charset=utf-8',
-              'Authorization' : 'Bearer {}'.format(SLACKBOT_AUTH_TOKEN)}
-    r = requests.post(POST_MESSAGE_ENDPOINT, json=data, headers=headers)
+    _post_a_message(POST_MESSAGE_ENDPOINT, data)
+
+
+def _post_a_message(endpoint, data):
+    headers = {
+        'content-type': 'application/json; charset=utf-8',
+        'Authorization': 'Bearer {}'.format(SLACKBOT_AUTH_TOKEN)
+    }
+    r = requests.post(endpoint, json=data, headers=headers)
+    print(r.content)
+
 
 if __name__ == "__main__":
     app.run(port=5000)
