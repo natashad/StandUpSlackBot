@@ -19,12 +19,16 @@ app = Flask(__name__)
 
 standup_updates = {}
 
-#TODO Make this actually support multiple stand ups.
-def _get_first_standup():
-    return STANDUPS.get('6ix')
+#TODO: Read this from the standups env config.
+CHANNEL_TO_POST_STANDUP = 'purpletest'
 
-def _get_standup_questions():
-    return _get_first_standup().get('questions')
+def _get_standup_questions(standup_name):
+    return _get_standup_by_name(standup_name).get('questions')
+
+
+def _get_standup_by_name(standup_name):
+    return STANDUPS.get(standup_name)
+
 
 # SLACK CALLBACKS
 
@@ -44,31 +48,35 @@ def callbacks():
 
 
 def _save_standup_update(payload):
+    if payload.get('type') != 'dialog_submission':
+        return
     user = payload.get('user').get('id')
     standup_result = []
-    if payload.get('type') == 'dialog_submission':
-        for question, answer in payload.get('submission').items():
-            if answer:
-                standup_result.append((question, answer))
-        global standup_updates
-        standup_updates[user] = standup_result
+    for question, answer in payload.get('submission').items():
+        if answer:
+            standup_result.append((question, answer))
+    standup_name = payload.get('state')
+    global standup_updates
+    if not standup_updates.get(standup_name):
+        standup_updates[standup_name] = {}
+    standup_updates[standup_name][user] = standup_result
 
 def _open_standup_dialog(payload):
     trigger_id = payload.get('trigger_id')
     action = payload.get('actions')[0]
+    standup_name = action.get('name')
     if action.get('value') == 'skip':
         return "Ok, I'll ask you again next stand up."
     elif action.get('value') == 'open_dialog':
-        _post_standup_dialog(trigger_id)
+        _post_standup_dialog(trigger_id, standup_name)
         return ""
     else:
         return "Sorry, I don't understand"
 
 
-def _post_standup_dialog(trigger_id):
+def _post_standup_dialog(trigger_id, standup_name):
     elements = []
-    count = 0
-    for question in _get_standup_questions():
+    for question in _get_standup_questions(standup_name):
         truncated_question = question
         if len(truncated_question) > 24:
             truncated_question = question[0:21] + '...'
@@ -76,13 +84,13 @@ def _post_standup_dialog(trigger_id):
             "type": "textarea",
             "label": truncated_question,
             "hint": question,
-            "name": "question" + str(count),
+            "name": question,
             "optional": True
         })
-        count = count + 1
     dialog = {
         "trigger_id": trigger_id,
         "dialog": {
+            "state": standup_name,
             "callback_id": "submit_standup",
             "title": "Today's Stand up Report",
             "submit_label": "Submit",
@@ -105,7 +113,7 @@ def message(event):
     if event.get('text').lower() == 'stand up' or event.get('text').lower() == 'standup':
         _post_stand_up_message(event.get('channel'))
     if event.get('text').lower() == "print stand up":
-        _post_stand_up_report(_get_first_standup().get('channel'))
+        _post_stand_up_report(CHANNEL_TO_POST_STANDUP)
 
 
 def _post_stand_up_report(channel):
@@ -118,22 +126,25 @@ def _post_stand_up_report(channel):
     }
     _post_a_message(POST_MESSAGE_ENDPOINT, data)
 
-    for user, updates in standup_updates.items():
-        username_info = "<@" + user + ">:"
-        attachments = []
-        for update in updates:
-            attachments.append(
-                {
-                    'title': update[0],
-                    'text': update[1]
-                }
-            )
-        data = {
-            'channel': channel,
-            'text': username_info,
-            'attachments': attachments
-        }
-        _post_a_message(POST_MESSAGE_ENDPOINT, data)
+    for standup in standup_updates:
+        #TODO: Remove this when it sends to team specific channels
+        _post_a_message(POST_MESSAGE_ENDPOINT, {'channel': channel, 'text': "Standup for: " + standup})
+        for user, updates in standup_updates.get(standup).items():
+            username_info = "<@" + user + ">:"
+            attachments = []
+            for update in updates:
+                attachments.append(
+                    {
+                        'title': update[0],
+                        'text': update[1]
+                    }
+                )
+            data = {
+                'channel': channel,
+                'text': username_info,
+                'attachments': attachments
+            }
+            _post_a_message(POST_MESSAGE_ENDPOINT, data)
 
 
 def _post_stand_up_message(channel):
@@ -144,13 +155,13 @@ def _post_stand_up_message(channel):
                 'attachment_type': 'default',
                 'actions': [
                     {
-                        'name': 'daily_standup',
+                        'name': '6ix',
                         'text': 'Open Dialog',
                         'type': 'button',
                         'value': 'open_dialog'
                     },
                     {
-                        'name': 'daily_standup',
+                        'name': '6ix',
                         'text': 'Skip',
                         'type': 'button',
                         'value': 'skip'
