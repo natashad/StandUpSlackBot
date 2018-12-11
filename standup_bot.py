@@ -12,15 +12,13 @@ import urllib.parse
 SLACK_SIGNING_SECRET = os.environ['SLACKBOT_SIGNING_SECRET']
 SLACKBOT_AUTH_TOKEN = os.environ['SLACKBOT_AUTH_TOKEN']
 STANDUPS = json.loads(os.environ['STANDUPS'])
+POST_REPORT_IMMEDIATELY = (os.environ['POST_STANDUP_REPORT_IMMEDIATELY'])
 
 # This `app` represents your existing Flask app
 app = Flask(__name__)
 
 
 standup_updates = {}
-
-#TODO: Read this from the standups env config.
-CHANNEL_TO_POST_STANDUP = 'purpletest'
 
 def _get_standup_questions(standup_name):
     return _get_standup_by_name(standup_name).get('questions')
@@ -38,14 +36,37 @@ def callbacks():
     if payload.get('callback_id') == 'standup_trigger':
         return  _open_standup_dialog(payload)
     if payload.get('callback_id') == 'submit_standup':
-        _save_standup_update(payload)
+        if POST_REPORT_IMMEDIATELY:
+            _immediately_post_update(payload)
+        else:
+            _save_standup_update(payload)
+
         _post_a_message(POST_MESSAGE_ENDPOINT, {
             'channel': payload.get('channel').get('id'),
-            'text': "Thank you :tada:"
+            'text': "Stand up submitted :tada:"
+
         })
         return ""
     return "Sorry, I don't Understand"
 
+
+def _immediately_post_update(payload):
+    standup_name = payload.get('state')
+    channel = STANDUPS.get(standup_name).get('channel')
+    user = payload.get('user').get('id')
+    username_info = "<@" + user + ">:"
+    attachments = []
+    for question, answer in payload.get('submission').items():
+        attachments.append({
+            'title': question,
+            'text': answer
+        })
+    data = {
+        'channel': channel,
+        'text': username_info,
+        'attachments': attachments
+    }
+    _post_a_message(POST_MESSAGE_ENDPOINT, data)
 
 def _save_standup_update(payload):
     if payload.get('type') != 'dialog_submission':
@@ -111,14 +132,22 @@ def message(event):
     if event.get('channel_type') != 'im' or not event.get('text'):
         return
     if event.get('text').lower() == 'stand up' or event.get('text').lower() == 'standup':
-        _post_stand_up_message(event.get('channel'))
-    if event.get('text').lower() == "print stand up":
-        _post_stand_up_report(CHANNEL_TO_POST_STANDUP)
+        for standup in _get_standups_for_user(event.get('user')):
+            _post_stand_up_message(event.get('channel'), standup)
 
+def _get_standups_for_user(userid):
+    teams = []
+    for standup in STANDUPS:
+        standup_config = STANDUPS.get(standup)
+        team = standup_config.get('team')
+        if userid in team:
+            teams.append(standup)
+    return teams
 
-def _post_stand_up_report(channel):
+def _post_stand_up_report(standup_name):
     standup_complete_message = "<!here> Stand up is complete:\n"
-    if not len(standup_updates):
+    channel = STANDUPS.get(standup_name).get('channel')
+    if not standup_updates.get(standup_name):
         standup_complete_message = standup_complete_message + "I did not hear back from anyone."
     data = {
         'channel': channel,
@@ -126,28 +155,29 @@ def _post_stand_up_report(channel):
     }
     _post_a_message(POST_MESSAGE_ENDPOINT, data)
 
-    for standup in standup_updates:
-        #TODO: Remove this when it sends to team specific channels
-        _post_a_message(POST_MESSAGE_ENDPOINT, {'channel': channel, 'text': "Standup for: " + standup})
-        for user, updates in standup_updates.get(standup).items():
-            username_info = "<@" + user + ">:"
-            attachments = []
-            for update in updates:
-                attachments.append(
-                    {
-                        'title': update[0],
-                        'text': update[1]
-                    }
-                )
-            data = {
-                'channel': channel,
-                'text': username_info,
-                'attachments': attachments
-            }
-            _post_a_message(POST_MESSAGE_ENDPOINT, data)
+    if not standup_updates.get(standup_name):
+        return
+
+    _post_a_message(POST_MESSAGE_ENDPOINT, {'channel': channel, 'text': "Standup for: " + standup_name})
+    for user, updates in standup_updates.get(standup_name).items():
+        username_info = "<@" + user + ">:"
+        attachments = []
+        for update in updates:
+            attachments.append(
+                {
+                    'title': update[0],
+                    'text': update[1]
+                }
+            )
+        data = {
+            'channel': channel,
+            'text': username_info,
+            'attachments': attachments
+        }
+        _post_a_message(POST_MESSAGE_ENDPOINT, data)
 
 
-def _post_stand_up_message(channel):
+def _post_stand_up_message(channel, standup_name):
     attachments = [
             {
                 'fallback' : 'fallback',
@@ -155,13 +185,13 @@ def _post_stand_up_message(channel):
                 'attachment_type': 'default',
                 'actions': [
                     {
-                        'name': '6ix',
+                        'name': standup_name,
                         'text': 'Open Dialog',
                         'type': 'button',
                         'value': 'open_dialog'
                     },
                     {
-                        'name': '6ix',
+                        'name': standup_name,
                         'text': 'Skip',
                         'type': 'button',
                         'value': 'skip'
@@ -172,10 +202,10 @@ def _post_stand_up_message(channel):
 
     data = {
         'channel': channel,
-        'text': 'Are you ready to start your daily stand up?',
+        'text': 'Are you ready to start today\'s stand up? for *{}*'.format(standup_name),
         'attachments': attachments
     }
-    _post_a_message(POST_MESSAGE_ENDPOINT, data)
+    return _post_a_message(POST_MESSAGE_ENDPOINT, data)
 
 
 def _post_a_message(endpoint, data):
@@ -183,8 +213,8 @@ def _post_a_message(endpoint, data):
         'content-type': 'application/json; charset=utf-8',
         'Authorization': 'Bearer {}'.format(SLACKBOT_AUTH_TOKEN)
     }
-    r = requests.post(endpoint, json=data, headers=headers)
-
+    res = requests.post(endpoint, json=data, headers=headers)
+    return res
 
 if __name__ == "__main__":
     app.run(port=5000)
