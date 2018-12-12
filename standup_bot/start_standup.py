@@ -3,11 +3,12 @@ import os
 import json
 import requests
 
-from standup_bot import _post_stand_up_message
-from constants import IM_OPEN
+from standup_bot.main import _post_stand_up_message
+from standup_bot.constants import IM_OPEN
 
 SLACKBOT_AUTH_TOKEN = os.environ['SLACKBOT_AUTH_TOKEN']
 STANDUPS = json.loads(os.environ['STANDUPS'])
+
 
 def do_main():
     standup_name = sys.argv[1]
@@ -20,6 +21,7 @@ def do_main():
         print("sending to a member: {}".format(member))
         channel = open_IM_channel(member)
         r = _post_stand_up_message(channel, standup_name)
+
 
 def open_IM_channel(user):
     headers = {
@@ -36,4 +38,3 @@ def open_IM_channel(user):
 
 if __name__ == "__main__":
     do_main()
-

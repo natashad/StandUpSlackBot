@@ -1,6 +1,6 @@
 from flask import Flask, request
 from slackeventsapi import SlackEventAdapter
-from constants import (
+from standup_bot.constants import (
     POST_MESSAGE_ENDPOINT,
     DIALOG_OPEN_ENDPOINT
 )
@@ -20,6 +20,7 @@ app = Flask(__name__)
 
 standup_updates = {}
 
+
 def _get_standup_questions(standup_name):
     return _get_standup_by_name(standup_name).get('questions')
 
@@ -29,22 +30,22 @@ def _get_standup_by_name(standup_name):
 
 
 # SLACK CALLBACKS
-
 @app.route('/slack/callbacks', methods=['POST'])
 def callbacks():
     payload = json.loads(request.form.get('payload'))
     if payload.get('callback_id') == 'standup_trigger':
-        return  _open_standup_dialog(payload)
+        return _open_standup_dialog(payload)
     if payload.get('callback_id') == 'submit_standup':
         if POST_REPORT_IMMEDIATELY:
             _immediately_post_update(payload)
         else:
             _save_standup_update(payload)
 
+        standup_name = payload.get('state')
+        post_to_channel = STANDUPS.get(standup_name).get('channel')
         _post_a_message(POST_MESSAGE_ENDPOINT, {
             'channel': payload.get('channel').get('id'),
-            'text': "Stand up submitted :tada:"
-
+            'text': "Stand up will be posted to *#{}* :tada:".format(post_to_channel)
         })
         return ""
     return "Sorry, I don't Understand"
@@ -68,6 +69,7 @@ def _immediately_post_update(payload):
     }
     _post_a_message(POST_MESSAGE_ENDPOINT, data)
 
+
 def _save_standup_update(payload):
     if payload.get('type') != 'dialog_submission':
         return
@@ -81,6 +83,7 @@ def _save_standup_update(payload):
     if not standup_updates.get(standup_name):
         standup_updates[standup_name] = {}
     standup_updates[standup_name][user] = standup_result
+
 
 def _open_standup_dialog(payload):
     trigger_id = payload.get('trigger_id')
@@ -128,12 +131,17 @@ slack_events_adapter = SlackEventAdapter(SLACK_SIGNING_SECRET, "/slack/events", 
 
 @slack_events_adapter.on("message")
 def message(event):
+    print("Received event")
+    print("USER {}".format(event.get('event').get('user')))
+    print("CHANNEL_TYPE : {}".format(event.get('event').get('channel_type')))
     event = event.get('event')
     if event.get('channel_type') != 'im' or not event.get('text'):
         return
     if event.get('text').lower() == 'stand up' or event.get('text').lower() == 'standup':
+        print(_get_standups_for_user(event.get('user')))
         for standup in _get_standups_for_user(event.get('user')):
             _post_stand_up_message(event.get('channel'), standup)
+
 
 def _get_standups_for_user(userid):
     teams = []
@@ -143,6 +151,7 @@ def _get_standups_for_user(userid):
         if userid in team:
             teams.append(standup)
     return teams
+
 
 def _post_stand_up_report(standup_name):
     standup_complete_message = "<!here> Stand up is complete:\n"
