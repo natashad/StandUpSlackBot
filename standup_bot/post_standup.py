@@ -1,6 +1,6 @@
 import sys
 
-from standup_bot import _post_stand_up_report
+from standup_bot.main import _post_stand_up_report
 
 
 def do_main():

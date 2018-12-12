@@ -4,21 +4,26 @@ from standup_bot.constants import (
     POST_MESSAGE_ENDPOINT,
     DIALOG_OPEN_ENDPOINT
 )
+from datetime import datetime, timedelta
 import json
 import os
 import requests
+import redis
 import urllib.parse
 
 SLACK_SIGNING_SECRET = os.environ['SLACKBOT_SIGNING_SECRET']
 SLACKBOT_AUTH_TOKEN = os.environ['SLACKBOT_AUTH_TOKEN']
 STANDUPS = json.loads(os.environ['STANDUPS'])
-POST_REPORT_IMMEDIATELY = (os.environ['POST_STANDUP_REPORT_IMMEDIATELY'])
+POST_REPORT_IMMEDIATELY = os.environ['POST_STANDUP_REPORT_IMMEDIATELY']
+REDIS_URL = os.environ['REDIS_URL']
+ECHO_STANDUP_REPORT = os.environ['ECHO_STANDUP_REPORT']
 
 # This `app` represents your existing Flask app
 app = Flask(__name__)
 
-
-standup_updates = {}
+redis_client = None
+if REDIS_URL:
+    redis_client = redis.from_url(REDIS_URL)
 
 
 def _get_standup_questions(standup_name):
@@ -36,10 +41,13 @@ def callbacks():
     if payload.get('callback_id') == 'standup_trigger':
         return _open_standup_dialog(payload)
     if payload.get('callback_id') == 'submit_standup':
-        if POST_REPORT_IMMEDIATELY:
+        if POST_REPORT_IMMEDIATELY and POST_REPORT_IMMEDIATELY != "0":
             _immediately_post_update(payload)
         else:
-            _save_standup_update(payload)
+            if redis_client:
+                _save_standup_update_to_redis(payload)
+        if ECHO_STANDUP_REPORT and ECHO_STANDUP_REPORT != "0":
+            _immediately_post_update(payload, payload.get('channel').get('id'))
 
         standup_name = payload.get('state')
         post_to_channel = STANDUPS.get(standup_name).get('channel')
@@ -51,26 +59,27 @@ def callbacks():
     return "Sorry, I don't Understand"
 
 
-def _immediately_post_update(payload):
+def _immediately_post_update(payload, override_channel=None):
     standup_name = payload.get('state')
     channel = STANDUPS.get(standup_name).get('channel')
     user = payload.get('user').get('id')
     username_info = "<@" + user + ">:"
     attachments = []
     for question, answer in payload.get('submission').items():
-        attachments.append({
-            'title': question,
-            'text': answer
-        })
+        if answer:
+            attachments.append({
+                'title': question,
+                'text': answer
+            })
     data = {
-        'channel': channel,
+        'channel': override_channel or channel,
         'text': username_info,
         'attachments': attachments
     }
     _post_a_message(POST_MESSAGE_ENDPOINT, data)
 
 
-def _save_standup_update(payload):
+def _save_standup_update_to_redis(payload):
     if payload.get('type') != 'dialog_submission':
         return
     user = payload.get('user').get('id')
@@ -79,10 +88,15 @@ def _save_standup_update(payload):
         if answer:
             standup_result.append((question, answer))
     standup_name = payload.get('state')
-    global standup_updates
-    if not standup_updates.get(standup_name):
-        standup_updates[standup_name] = {}
-    standup_updates[standup_name][user] = standup_result
+    redis_key = standup_name + ":" + user
+    standup_result_str = json.dumps(standup_result)
+    redis_client.setex(redis_key, _get_seconds_to_midnight(), standup_result_str)
+
+
+def _get_seconds_to_midnight():
+    now = datetime.now()
+    midnight = datetime(year=now.year, month=now.month, day=now.day, hour=23, minute=59, second=59)
+    return (midnight - now).seconds
 
 
 def _open_standup_dialog(payload):
@@ -154,9 +168,12 @@ def _get_standups_for_user(userid):
 
 
 def _post_stand_up_report(standup_name):
+    if not redis_client:
+        return
     standup_complete_message = "<!here> Stand up is complete:\n"
     channel = STANDUPS.get(standup_name).get('channel')
-    if not standup_updates.get(standup_name):
+    standup_redis_keys = redis_client.keys(standup_name + ":*")
+    if not standup_redis_keys:
         standup_complete_message = standup_complete_message + "I did not hear back from anyone."
     data = {
         'channel': channel,
@@ -164,11 +181,14 @@ def _post_stand_up_report(standup_name):
     }
     _post_a_message(POST_MESSAGE_ENDPOINT, data)
 
-    if not standup_updates.get(standup_name):
+    if not standup_redis_keys:
         return
 
-    _post_a_message(POST_MESSAGE_ENDPOINT, {'channel': channel, 'text': "Standup for: " + standup_name})
-    for user, updates in standup_updates.get(standup_name).items():
+    _post_a_message(POST_MESSAGE_ENDPOINT, {'channel': channel, 'text': "Standup for: *{}*".format(standup_name)})
+    for key in standup_redis_keys:
+        key = key.decode('utf-8')
+        user = key.split(':')[1]
+        updates = json.loads(redis_client.get(key))
         username_info = "<@" + user + ">:"
         attachments = []
         for update in updates:
@@ -189,7 +209,7 @@ def _post_stand_up_report(standup_name):
 def _post_stand_up_message(channel, standup_name):
     attachments = [
             {
-                'fallback' : 'fallback',
+                'fallback': 'fallback',
                 'callback_id': 'standup_trigger',
                 'attachment_type': 'default',
                 'actions': [
