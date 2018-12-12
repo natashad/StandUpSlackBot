@@ -2,9 +2,12 @@ import sys
 import os
 import json
 import requests
+import argparse
+import calendar
 
 from standup_bot.main import _post_stand_up_message
 from standup_bot.constants import IM_OPEN
+from datetime import datetime
 
 SLACKBOT_AUTH_TOKEN = os.environ['SLACKBOT_AUTH_TOKEN']
 STANDUPS = json.loads(os.environ['STANDUPS'])
@@ -12,13 +15,29 @@ WEEKENDS = [calendar.SATURDAY, calendar.SUNDAY]
 
 
 def do_main():
-    extra_ignore_days = []
-    if len(sys.argv) > 2:
-        extra_ignore_days = sys.argv[2]
-    if calendar.day_name[datetime.today().weekday()] in ignore_days:
+    CLI = argparse.ArgumentParser()
+    CLI.add_argument(
+      "--standup",
+      nargs=1,
+      type=str
+    )
+    CLI.add_argument(
+      "--ignore_days",
+      nargs="*",
+      type=int,
+      default=[],
+    )
+    args = CLI.parse_args()
+
+    if not args.standup:
+        print("No standup provided")
+
+    ignore_days = WEEKENDS + args.ignore_days
+
+    if datetime.today().weekday() in ignore_days:
         print("Do nothing, it's an ignore day")
         return
-    standup_name = sys.argv[1]
+    standup_name = args.standup[0]
     standup = STANDUPS.get(standup_name)
     print(standup)
     standup_team = standup.get('team')

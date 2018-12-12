@@ -10,6 +10,7 @@ flask = "*"
 slackeventsapi = "*"
 gunicorn = "*"
 redis = "*"
+argparse = "*"
 
 [requires]
 python_version = "3.7"
