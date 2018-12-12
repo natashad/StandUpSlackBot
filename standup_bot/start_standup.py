@@ -8,9 +8,15 @@ from standup_bot.constants import IM_OPEN
 
 SLACKBOT_AUTH_TOKEN = os.environ['SLACKBOT_AUTH_TOKEN']
 STANDUPS = json.loads(os.environ['STANDUPS'])
+WEEKENDS = [calendar.SATURDAY, calendar.SUNDAY]
 
 
 def do_main():
+    extra_ignore_days = sys.argv[2]
+    ignore_days = WEEKENDS + extra_ignore_days
+    if calendar.day_name[datetime.today().weekday()] in ignore_days:
+        print("Do nothing, it's an ignore day")
+        return
     standup_name = sys.argv[1]
     standup = STANDUPS.get(standup_name)
     print(standup)

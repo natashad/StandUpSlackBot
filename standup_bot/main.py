@@ -14,7 +14,6 @@ import urllib.parse
 SLACK_SIGNING_SECRET = os.environ['SLACKBOT_SIGNING_SECRET']
 SLACKBOT_AUTH_TOKEN = os.environ['SLACKBOT_AUTH_TOKEN']
 STANDUPS = json.loads(os.environ['STANDUPS'])
-POST_REPORT_IMMEDIATELY = os.environ['POST_STANDUP_REPORT_IMMEDIATELY']
 REDIS_URL = os.environ['REDIS_URL']
 ECHO_STANDUP_REPORT = os.environ['ECHO_STANDUP_REPORT']
 
@@ -41,11 +40,10 @@ def callbacks():
     if payload.get('callback_id') == 'standup_trigger':
         return _open_standup_dialog(payload)
     if payload.get('callback_id') == 'submit_standup':
-        if POST_REPORT_IMMEDIATELY and POST_REPORT_IMMEDIATELY != "0":
+        if not redis_client:
             _immediately_post_update(payload)
         else:
-            if redis_client:
-                _save_standup_update_to_redis(payload)
+            _save_standup_update_to_redis(payload)
         if ECHO_STANDUP_REPORT and ECHO_STANDUP_REPORT != "0":
             _immediately_post_update(payload, payload.get('channel').get('id'))
 
