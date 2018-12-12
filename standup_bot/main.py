@@ -40,14 +40,16 @@ def callbacks():
     if payload.get('callback_id') == 'standup_trigger':
         return _open_standup_dialog(payload)
     if payload.get('callback_id') == 'submit_standup':
+        standup_name = payload.get('state')
         if not redis_client:
             _immediately_post_update(payload)
         else:
             _save_standup_update_to_redis(payload)
+            if redis_client.get('completed_standup:{}'.format(standup_name)):
+                _immediately_post_update(payload)
         if ECHO_STANDUP_REPORT and ECHO_STANDUP_REPORT != "0":
             _immediately_post_update(payload, payload.get('channel').get('id'))
 
-        standup_name = payload.get('state')
         post_to_channel = STANDUPS.get(standup_name).get('channel')
         _post_a_message(POST_MESSAGE_ENDPOINT, {
             'channel': payload.get('channel').get('id'),
@@ -202,6 +204,8 @@ def _post_stand_up_report(standup_name):
             'attachments': attachments
         }
         _post_a_message(POST_MESSAGE_ENDPOINT, data)
+
+    redis_client.setex("completed_standup:{}".format(standup_name), _get_seconds_to_midnight() ,'true')
 
 
 def _post_stand_up_message(channel, standup_name):

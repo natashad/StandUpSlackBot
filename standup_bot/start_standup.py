@@ -12,8 +12,9 @@ WEEKENDS = [calendar.SATURDAY, calendar.SUNDAY]
 
 
 def do_main():
-    extra_ignore_days = sys.argv[2]
-    ignore_days = WEEKENDS + extra_ignore_days
+    extra_ignore_days = []
+    if len(sys.argv) > 2:
+        extra_ignore_days = sys.argv[2]
     if calendar.day_name[datetime.today().weekday()] in ignore_days:
         print("Do nothing, it's an ignore day")
         return
