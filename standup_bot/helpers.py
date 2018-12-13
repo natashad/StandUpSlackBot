@@ -114,18 +114,33 @@ def post_standup_report(standup_name, redis_client):
         'channel': channel,
         'text': "Standup for: *{}*".format(standup_name)
     })
+
+    skipped_list = []
+
     for key in standup_redis_keys:
         key = key.decode('utf-8')
         user = key.split(':')[1]
         updates = json.loads(redis_client.get(key))
-        username_info = "<@" + user + ">:"
+        username_info = "<@" + user + ">"
 
         attachments = get_standup_report_attachments(updates)
+
+        if not attachments:
+            skipped_list.append(username_info)
+            continue
 
         data = {
             'channel': channel,
             'text': username_info,
             'attachments': attachments
+        }
+        post_message_to_slack(data)
+
+    if skipped_list:
+        skipped_users = ", ".join(skipped_list)
+        data = {
+            'channel': channel,
+            'text': "_{}_ skipped.".format(skipped_users)
         }
         post_message_to_slack(data)
 

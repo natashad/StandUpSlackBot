@@ -23,7 +23,7 @@ if config.get('REDIS_URL'):
 def callbacks():
     payload = json.loads(request.form.get('payload'))
     if payload.get('callback_id') == 'standup_trigger':
-        return trigger_standup(payload)
+        return trigger_standup(payload, redis_client)
     if payload.get('callback_id') == 'submit_standup':
         return submit_standup(payload, redis_client, config.get('ECHO_STANDUP_REPORT'))
 
