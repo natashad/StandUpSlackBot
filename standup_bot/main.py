@@ -29,7 +29,6 @@ def callbacks():
 
 
 # SLACK EVENT API EVENT HANDLERS:
-
 slack_events_adapter = SlackEventAdapter(
     config.get('SLACKBOT_SIGNING_SECRET'),
     "/slack/events",
