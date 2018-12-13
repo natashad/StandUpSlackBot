@@ -1,2 +1,4 @@
 .env
 *.swp
+.DS_STORE
+*.DS_STORE
