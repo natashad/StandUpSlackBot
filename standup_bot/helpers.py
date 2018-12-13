@@ -49,7 +49,7 @@ def get_seconds_to_midnight():
 
 def get_standup_report_attachments(submission):
     attachments = []
-    colors = ['#33FF33', '#0080FF', '#FF0000']
+    colors = ['#B2FFCC', '#66B2FF', '#FF6666']
     color_cursor = 0
     for question, answer in submission:
         if answer:

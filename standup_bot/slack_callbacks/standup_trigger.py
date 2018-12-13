@@ -34,7 +34,9 @@ def post_standup_dialog_modal(trigger_id, user_id, standup_name, redis_client):
     elements = []
     report = []
     if redis_client:
-        report = json.loads(get_standup_report_for_user(standup_name, user_id, redis_client))
+        previously_entered_standup = get_standup_report_for_user(standup_name, user_id, redis_client)
+        if previously_entered_standup:
+            report = json.loads(previously_entered_standup)
 
     for question in get_standup_questions(standup_name):
         truncated_question = question
