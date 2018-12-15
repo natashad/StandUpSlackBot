@@ -1,8 +1,8 @@
+import json
+
 from standup_bot.helpers import (
     get_seconds_to_midnight
 )
-
-import json
 
 
 def save_standup_update_to_redis(standup_name, user_id, submission, redis_client):
@@ -20,6 +20,6 @@ def save_standup_update_to_redis(standup_name, user_id, submission, redis_client
 
 def get_standup_report_for_user(standup_name, user_id, redis_client):
     if not redis_client:
-        return
+        return None
     redis_key = standup_name + ":" + user_id
     return redis_client.get(redis_key)

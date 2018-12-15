@@ -1,12 +1,13 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+
+import json
+import requests
+
 from standup_bot.config import read_config
 from standup_bot.constants import (
     POST_MESSAGE_ENDPOINT,
     DIALOG_OPEN_ENDPOINT,
 )
-
-import json
-import requests
 
 
 config = read_config()
@@ -64,25 +65,25 @@ def get_standup_report_attachments(submission):
 
 def post_standup_prompt(channel, standup_name):
     attachments = [
-            {
-                'fallback': 'fallback',
-                'callback_id': 'standup_trigger',
-                'attachment_type': 'default',
-                'actions': [
-                    {
-                        'name': standup_name,
-                        'text': 'Open Dialog',
-                        'type': 'button',
-                        'value': 'open_dialog'
-                    },
-                    {
-                        'name': standup_name,
-                        'text': 'Skip',
-                        'type': 'button',
-                        'value': 'skip'
-                    }
-                ]
-            }
+        {
+            'fallback': 'fallback',
+            'callback_id': 'standup_trigger',
+            'attachment_type': 'default',
+            'actions': [
+                {
+                    'name': standup_name,
+                    'text': 'Open Dialog',
+                    'type': 'button',
+                    'value': 'open_dialog'
+                },
+                {
+                    'name': standup_name,
+                    'text': 'Skip',
+                    'type': 'button',
+                    'value': 'skip'
+                }
+            ]
+        }
     ]
 
     data = {

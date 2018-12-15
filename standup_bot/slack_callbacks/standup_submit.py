@@ -3,12 +3,10 @@ from standup_bot.helpers import (
     post_message_to_slack,
     get_standup_report_attachments
 )
-
 from standup_bot.redis_helper import (
     save_standup_update_to_redis
 )
 
-import json
 
 
 def submit_standup(payload, redis_client, echo=False):
@@ -18,7 +16,7 @@ def submit_standup(payload, redis_client, echo=False):
     else:
         user_channel = payload.get('channel').get('id')
         if payload.get('type') != 'dialog_submission':
-            return
+            return "Sorry, I don't understand"
         userid = payload.get('user').get('id')
         submission = payload.get('submission').items()
         standup_name = payload.get('state')
@@ -34,7 +32,7 @@ def submit_standup(payload, redis_client, echo=False):
             'text': "Stand up will be posted to *#{}* :tada:".format(standup_channel)
         })
         return ""
-    return "Sorry, I don't Understand"
+    return "Sorry, I don't understand"
 
 
 def immediately_post_update(payload, override_channel=None):

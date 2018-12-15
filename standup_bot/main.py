@@ -1,3 +1,6 @@
+import json
+import redis
+
 from flask import Flask, request
 from slackeventsapi import SlackEventAdapter
 from standup_bot.config import read_config
@@ -5,8 +8,7 @@ from standup_bot.event_handlers.message_handler import handle_event as handle_me
 from standup_bot.slack_callbacks.standup_trigger import trigger_standup
 from standup_bot.slack_callbacks.standup_submit import submit_standup
 
-import json
-import redis
+
 
 
 app = Flask(__name__)
@@ -26,6 +28,7 @@ def callbacks():
         return trigger_standup(payload, redis_client)
     if payload.get('callback_id') == 'submit_standup':
         return submit_standup(payload, redis_client, config.get('ECHO_STANDUP_REPORT'))
+    return "Sorry, I don't understand"
 
 
 # SLACK EVENT API EVENT HANDLERS:

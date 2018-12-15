@@ -1,15 +1,14 @@
+import json
+
 from standup_bot.helpers import (
     post_message_to_slack,
-    get_standup_questions,
-    get_seconds_to_midnight
+    get_standup_questions
 )
 from standup_bot.redis_helper import (
     save_standup_update_to_redis,
     get_standup_report_for_user
 )
 from standup_bot.constants import DIALOG_LABEL_MAX_LENGTH
-
-import json
 
 
 def trigger_standup(payload, redis_client=None):
@@ -22,11 +21,11 @@ def trigger_standup(payload, redis_client=None):
         if redis_client:
             save_standup_update_to_redis(standup_name, user_id, [], redis_client)
         return "Ok, I'll ask you again next stand up."
-    elif action.get('value') == 'open_dialog':
+    if action.get('value') == 'open_dialog':
         post_standup_dialog_modal(trigger_id, user_id, standup_name, redis_client)
         return ""
-    else:
-        return "Sorry, I don't understand"
+
+    return "Sorry, I don't understand"
 
 
 # Helpers
