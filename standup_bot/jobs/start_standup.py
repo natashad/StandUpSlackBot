@@ -9,8 +9,7 @@ from standup_bot.config import read_config
 from standup_bot.constants import IM_OPEN
 from standup_bot.jobs.job_helper import (
   parse_args,
-  skip_job,
-  get_standup_team_with_userids
+  skip_job
 )
 
 
@@ -29,7 +28,7 @@ def do_main():
         redis_client = redis.from_url(config.get('REDIS_URL'))
 
     standup_name = args.standup[0]
-    standup_team = get_standup_team_with_userids(standup_name, redis_client)
+    standup_team = config.get('STANDUPS').get(standup_name).get('team')
 
     for member in standup_team:
         print("sending to a member: {}".format(member))
