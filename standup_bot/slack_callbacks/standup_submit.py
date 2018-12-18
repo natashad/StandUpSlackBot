@@ -1,3 +1,4 @@
+from standup_bot.constants import INVALID_INPUT_MESSAGE
 from standup_bot.helpers import (
     get_standup_channel,
     post_message_to_slack,
@@ -16,7 +17,7 @@ def submit_standup(payload, redis_client, echo=False):
     else:
         user_channel = payload.get('channel').get('id')
         if payload.get('type') != 'dialog_submission':
-            return "Sorry, I don't understand"
+            return INVALID_INPUT_MESSAGE
         userid = payload.get('user').get('id')
         submission = payload.get('submission').items()
         standup_name = payload.get('state')
@@ -32,7 +33,7 @@ def submit_standup(payload, redis_client, echo=False):
             'text': "Stand up will be posted to *#{}* :tada:".format(standup_channel)
         })
         return ""
-    return "Sorry, I don't understand"
+    return INVALID_INPUT_MESSAGE
 
 
 def immediately_post_update(payload, override_channel=None):

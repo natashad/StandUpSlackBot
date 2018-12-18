@@ -7,8 +7,7 @@ from standup_bot.config import read_config
 from standup_bot.event_handlers.message_handler import handle_event as handle_message_event
 from standup_bot.slack_callbacks.standup_trigger import trigger_standup
 from standup_bot.slack_callbacks.standup_submit import submit_standup
-
-
+from standup_bot.constants import INVALID_INPUT_MESSAGE
 
 
 app = Flask(__name__)
@@ -28,7 +27,7 @@ def callbacks():
         return trigger_standup(payload, redis_client)
     if payload.get('callback_id') == 'submit_standup':
         return submit_standup(payload, redis_client, config.get('ECHO_STANDUP_REPORT'))
-    return "Sorry, I don't understand"
+    return INVALID_INPUT_MESSAGE
 
 
 # SLACK EVENT API EVENT HANDLERS:
@@ -42,3 +41,4 @@ slack_events_adapter = SlackEventAdapter(
 @slack_events_adapter.on("message")
 def message(event):
     handle_message_event(event)
+    

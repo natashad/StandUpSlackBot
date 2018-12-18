@@ -33,6 +33,10 @@ ECHO_STANDUP_REPORT=1 # posts the standup report back to the user after they sub
 
 You will need to have something like ngrok set up to expose your local development environment to the interwebs while running this locally.
 
+#### Running the Linter:
+
+`$ pylint standup_bot`
+
 
 ### Running the Jobs:
 

@@ -8,7 +8,11 @@ from standup_bot.redis_helper import (
     save_standup_update_to_redis,
     get_standup_report_for_user
 )
-from standup_bot.constants import DIALOG_LABEL_MAX_LENGTH
+from standup_bot.constants import (
+    DIALOG_LABEL_MAX_LENGTH,
+    INVALID_INPUT_MESSAGE,
+    SKIP_MESSAGE
+)
 
 
 def trigger_standup(payload, redis_client=None):
@@ -20,12 +24,12 @@ def trigger_standup(payload, redis_client=None):
     if action.get('value') == 'skip':
         if redis_client:
             save_standup_update_to_redis(standup_name, user_id, [], redis_client)
-        return "Ok, I'll ask you again next stand up."
+        return SKIP_MESSAGE
     if action.get('value') == 'open_dialog':
         post_standup_dialog_modal(trigger_id, user_id, standup_name, redis_client)
         return ""
 
-    return "Sorry, I don't understand"
+    return INVALID_INPUT_MESSAGE
 
 
 # Helpers
