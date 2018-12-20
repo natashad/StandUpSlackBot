@@ -5,7 +5,8 @@ from standup_bot.helpers import (
     get_standup_report_attachments
 )
 from standup_bot.redis_helper import (
-    save_standup_update_to_redis
+    save_standup_update_to_redis,
+    get_standup_completed_state
 )
 
 
@@ -22,7 +23,7 @@ def submit_standup(payload, redis_client, echo=False):
         submission = payload.get('submission').items()
         standup_name = payload.get('state')
         save_standup_update_to_redis(standup_name, userid, submission, redis_client)
-        if redis_client.get('completed_standup:{}'.format(standup_name)):
+        if get_standup_completed_state(standup_name, redis_client):
             immediately_post_update(payload)
         if echo:
             immediately_post_update(payload, user_channel)

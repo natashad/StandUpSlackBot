@@ -14,7 +14,7 @@ def read_config():
     config = {}
 
     for env_var in EXPECTED_ENVIRONMENT_VARIABLES:
-        value = os.environ[env_var]
+        value = get_environment_variables
         if value in ["0", "False", "false", "no"]:
             value = False
         config[env_var] = value
@@ -22,3 +22,8 @@ def read_config():
     config['STANDUPS'] = json.loads(config['STANDUPS'])
 
     return config
+
+
+def get_environment_variables():
+    return os.environ
+    

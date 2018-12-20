@@ -1,12 +1,13 @@
-from datetime import datetime
-
-import json
 import requests
 
 from standup_bot.config import read_config
 from standup_bot.constants import (
     POST_MESSAGE_ENDPOINT,
     DIALOG_OPEN_ENDPOINT,
+)
+from standup_bot.redis_helper import (
+    get_standup_report_for_team,
+    save_standup_completed_state
 )
 
 
@@ -40,12 +41,6 @@ def get_standups_for_user(user_id):
         if user_id in team:
             teams.append(standup)
     return teams
-
-
-def get_seconds_to_midnight():
-    now = datetime.now()
-    midnight = datetime(year=now.year, month=now.month, day=now.day, hour=23, minute=59, second=59)
-    return (midnight - now).seconds
 
 
 def get_standup_report_attachments(submission):
@@ -97,18 +92,13 @@ def post_standup_prompt(channel, standup_name):
 def post_standup_report(standup_name, redis_client):
     if not redis_client:
         return
-    standup_complete_message = "<!here> Stand up is complete:\n"
-    channel = get_standup_channel(standup_name)
-    standup_redis_keys = redis_client.keys(standup_name + ":*")
-    if not standup_redis_keys:
-        standup_complete_message = standup_complete_message + "I did not hear back from anyone."
-    data = {
-        'channel': channel,
-        'text': standup_complete_message
-    }
-    post_message_to_slack(data)
 
-    if not standup_redis_keys:
+    channel = get_standup_channel(standup_name)
+    standup_reports = get_standup_report_for_team(standup_name, redis_client)
+
+    post_initial_standup_report_message(channel, len(standup_reports))
+
+    if not standup_reports:
         return
 
     post_message_to_slack({
@@ -118,10 +108,8 @@ def post_standup_report(standup_name, redis_client):
 
     skipped_list = []
 
-    for key in standup_redis_keys:
-        key = key.decode('utf-8')
-        user = key.split(':')[1]
-        updates = json.loads(redis_client.get(key))
+    for user in standup_reports:
+        updates = standup_reports[user]
         username_info = "<@" + user + ">"
 
         attachments = get_standup_report_attachments(updates)
@@ -137,6 +125,24 @@ def post_standup_report(standup_name, redis_client):
         }
         post_message_to_slack(data)
 
+    post_skipped_standup_message(channel, skipped_list)
+    save_standup_completed_state(standup_name, redis_client)
+
+
+def post_initial_standup_report_message(channel, number_of_submissions):
+    standup_complete_message = "<!here> Stand up is complete:\n"
+
+    if number_of_submissions == 0:
+        standup_complete_message = standup_complete_message + "I did not hear back from anyone."
+
+    data = {
+        'channel': channel,
+        'text': standup_complete_message
+    }
+    post_message_to_slack(data)
+
+
+def post_skipped_standup_message(channel, skipped_list):
     if skipped_list:
         skipped_users = ", ".join(skipped_list)
         data = {
@@ -144,12 +150,6 @@ def post_standup_report(standup_name, redis_client):
             'text': "_{}_ skipped.".format(skipped_users)
         }
         post_message_to_slack(data)
-
-    redis_client.setex(
-        "completed_standup:{}".format(standup_name),
-        get_seconds_to_midnight(),
-        'true'
-    )
 
 
 def post_message_to_slack(data, message_type='message'):

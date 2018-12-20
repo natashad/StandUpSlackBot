@@ -2,8 +2,6 @@ from datetime import datetime
 
 import argparse
 import calendar
-import json
-import requests
 
 from standup_bot.config import read_config
 
@@ -14,15 +12,15 @@ config = read_config()
 def parse_args():
     CLI = argparse.ArgumentParser()
     CLI.add_argument(
-      "--standup",
-      nargs=1,
-      type=str
+        "--standup",
+        nargs=1,
+        type=str
     )
     CLI.add_argument(
-      "--ignore_days",
-      nargs="*",
-      type=int,
-      default=[],
+        "--ignore_days",
+        nargs="*",
+        type=int,
+        default=[],
     )
     args = CLI.parse_args()
     return args

@@ -1,12 +1,10 @@
-import sys
 import redis
-import json
 
 from standup_bot.helpers import post_standup_report
 from standup_bot.config import read_config
 from standup_bot.jobs.job_helper import (
-  parse_args,
-  skip_job
+    parse_args,
+    skip_job
 )
 
 

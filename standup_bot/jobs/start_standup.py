@@ -1,15 +1,12 @@
-import sys
-import os
 import json
 import requests
-import redis
 
 from standup_bot.helpers import post_standup_prompt
 from standup_bot.config import read_config
 from standup_bot.constants import IM_OPEN
 from standup_bot.jobs.job_helper import (
-  parse_args,
-  skip_job
+    parse_args,
+    skip_job
 )
 
 
@@ -23,17 +20,14 @@ def do_main():
         print("Skipping Job")
         return
 
-    redis_client = None
-    if config.get('REDIS_URL'):
-        redis_client = redis.from_url(config.get('REDIS_URL'))
-
     standup_name = args.standup[0]
     standup_team = config.get('STANDUPS').get(standup_name).get('team')
 
     for member in standup_team:
         print("sending to a member: {}".format(member))
         channel = open_IM_channel(member)
-        r = post_standup_prompt(channel, standup_name)
+        if channel:
+            post_standup_prompt(channel, standup_name)
 
 
 def open_IM_channel(user):
@@ -46,8 +40,9 @@ def open_IM_channel(user):
     if response.get('ok'):
         channel = response.get('channel').get('id')
         return channel
-    else:
-        print("Response Error: {}".format(response))
+
+    print("Response Error: {}".format(response))
+    return None
 
 if __name__ == "__main__":
     do_main()
