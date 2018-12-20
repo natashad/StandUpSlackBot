@@ -1,48 +1,38 @@
 import json
 import requests
 
+from standup_bot.jobs.base_job import BaseJob
 from standup_bot.helpers import post_standup_prompt
-from standup_bot.config import read_config
 from standup_bot.constants import IM_OPEN
-from standup_bot.jobs.job_helper import (
-    parse_args,
-    skip_job
-)
 
 
-config = read_config()
+class StartStandupJob(BaseJob):
+    def do_job(self, config, standup_name):
+        standup_team = config.get('STANDUPS').get(standup_name).get('team')
 
+        for member in standup_team:
+            print("sending to a member: {}".format(member))
+            channel = self.open_IM_channel(
+                config.get('SLACKBOT_AUTH_TOKEN'),
+                member
+            )
+            if channel:
+                post_standup_prompt(channel, standup_name)
 
-def do_main():
-    args = parse_args()
+    def open_IM_channel(self, auth_token, user):    # noqa pylint: disable=no-self-use
+        headers = {
+            'content-type': 'application/json; charset=utf-8',
+            'Authorization': 'Bearer {}'.format(auth_token)
+        }
+        response = requests.post(IM_OPEN, json={'user': user}, headers=headers)
+        response = json.loads(response.content)
+        if response.get('ok'):
+            channel = response.get('channel').get('id')
+            return channel
 
-    if skip_job(args):
-        print("Skipping Job")
-        return
-
-    standup_name = args.standup[0]
-    standup_team = config.get('STANDUPS').get(standup_name).get('team')
-
-    for member in standup_team:
-        print("sending to a member: {}".format(member))
-        channel = open_IM_channel(member)
-        if channel:
-            post_standup_prompt(channel, standup_name)
-
-
-def open_IM_channel(user):
-    headers = {
-        'content-type': 'application/json; charset=utf-8',
-        'Authorization': 'Bearer {}'.format(config.get('SLACKBOT_AUTH_TOKEN'))
-    }
-    response = requests.post(IM_OPEN, json={'user': user}, headers=headers)
-    response = json.loads(response.content)
-    if response.get('ok'):
-        channel = response.get('channel').get('id')
-        return channel
-
-    print("Response Error: {}".format(response))
-    return None
+        print("Response Error: {}".format(response))
+        return None
 
 if __name__ == "__main__":
-    do_main()
+    start_standup_job = StartStandupJob()
+    start_standup_job.run_job()
