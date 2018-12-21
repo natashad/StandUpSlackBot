@@ -4,7 +4,7 @@ import json
 
 from freezegun import freeze_time
 from nose.tools import eq_
-from standup_bot.tests.base_test import BaseTest
+from tests.base_test import BaseTest
 from standup_bot.redis_helper import (
     save_standup_update_to_redis,
     get_standup_report_for_user,
