@@ -2,13 +2,19 @@ import json
 import requests
 
 from standup_bot.jobs.base_job import BaseJob
-from standup_bot.helpers import post_standup_prompt
+from standup_bot.helpers import StandupBotHelper
 from standup_bot.constants import IM_OPEN
 
 
 class StartStandupJob(BaseJob):
     def do_job(self, config, standup_name):
-        standup_team = config.get('STANDUPS').get(standup_name).get('team')
+        standup = config.get('STANDUPS').get(standup_name)
+        if not standup:
+            print("No standup configured for {}".format(standup_name))
+            return
+
+        standup_team = standup.get('team')
+        helper = StandupBotHelper(config)
 
         for member in standup_team:
             print("sending to a member: {}".format(member))
@@ -17,7 +23,7 @@ class StartStandupJob(BaseJob):
                 member
             )
             if channel:
-                post_standup_prompt(channel, standup_name)
+                helper.post_standup_prompt(channel, standup_name)
 
     def open_IM_channel(self, auth_token, user):    # noqa pylint: disable=no-self-use
         headers = {

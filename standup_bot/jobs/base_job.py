@@ -3,18 +3,24 @@ from datetime import datetime
 import calendar
 import argparse
 
-from standup_bot.config import read_config
+from standup_bot.config import Config
 
 
 class BaseJob():
+    def __init__(self, configs=None):
+        self.configs = configs
+
     def run_job(self):
         args = self.parse_args()
 
         if self.skip_job(args):
-            print("Skipping Job")
+            print("Ignore day -- skipping job")
+            return
+        if not args.standup:
+            print("No standup provided.")
             return
 
-        config = read_config()
+        config = Config(self.configs)
         self.do_job(config, args.standup[0])
 
     def do_job(self, config, standup_name):

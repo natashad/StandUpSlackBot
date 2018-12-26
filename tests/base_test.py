@@ -1,16 +1,24 @@
+import json
+
 from unittest.mock import patch
 
 class BaseTest():
     def setup(self):
-        self.env_vars_patch = patch('standup_bot.config.get_environment_variables')   # noqa pylint: disable=attribute-defined-outside-init
-        self.env_vars = self.env_vars_patch.start() # noqa pylint: disable=attribute-defined-outside-init
-        self.env_vars.return_value = {
+        standup_conf = {
+            'test_standup': {
+                'team': ['USER1TEST', 'USER2TEST'],
+                'channel': 'testchannel',
+                'questions': ['Question1', 'Question2', 'Question3']
+            }
+
+        }
+        self.test_configs = {
             'SLACKBOT_SIGNING_SECRET': 'slackbot_signing_sekret',
             'SLACKBOT_AUTH_TOKEN': 'slackbot_auth_token',
-            'STANDUPS': {'test_standup': {}},
+            'STANDUPS': json.dumps(standup_conf),
             'REDIS_URL': '',
-            'ECHO_STANDUP_REPORT': 1
+            'ECHO_STANDUP_REPORT': False
         }
 
     def teardown(self):
-        self.env_vars_patch.stop()
+        pass

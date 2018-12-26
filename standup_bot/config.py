@@ -10,19 +10,22 @@ EXPECTED_ENVIRONMENT_VARIABLES = [
 ]
 
 
-def read_config():
-    config = {}
+class Config():
+    def __init__(self, configs=None):
+        self.config = {}
 
-    for env_var in EXPECTED_ENVIRONMENT_VARIABLES:
-        value = get_environment_variables()[env_var]
-        if value in ["0", "False", "false", "no"]:
-            value = False
-        config[env_var] = value
+        config_variables = os.environ
 
-    config['STANDUPS'] = json.loads(config['STANDUPS'])
+        if configs:
+            config_variables = configs
 
-    return config
+        for env_var in EXPECTED_ENVIRONMENT_VARIABLES:
+            value = config_variables[env_var]
+            if value in ["0", "False", "false", "no"]:
+                value = False
+            self.config[env_var] = value
 
+        self.config['STANDUPS'] = json.loads(self.config['STANDUPS'])
 
-def get_environment_variables():
-    return os.environ
+    def get(self, key):
+        return self.config.get(key)

@@ -1,9 +1,6 @@
 import json
 
-from standup_bot.helpers import (
-    post_message_to_slack,
-    get_standup_questions
-)
+from standup_bot.helpers import StandupBotHelper
 from standup_bot.redis_helper import (
     save_standup_update_to_redis,
     get_standup_report_for_user
@@ -36,12 +33,13 @@ def trigger_standup(payload, redis_client=None):
 def post_standup_dialog_modal(trigger_id, user_id, standup_name, redis_client):
     elements = []
     report = []
+    helper = StandupBotHelper()
     if redis_client:
         previously_entered_standup = get_standup_report_for_user(standup_name, user_id, redis_client)
         if previously_entered_standup:
             report = json.loads(previously_entered_standup)
 
-    for question in get_standup_questions(standup_name):
+    for question in helper.get_standup_questions(standup_name):
         truncated_question = question
         if len(truncated_question) > DIALOG_LABEL_MAX_LENGTH:
             truncated_question = question[0:DIALOG_LABEL_MAX_LENGTH-3] + '...'
@@ -69,4 +67,4 @@ def post_standup_dialog_modal(trigger_id, user_id, standup_name, redis_client):
             "elements": elements
         }
     }
-    post_message_to_slack(dialog, message_type='dialog')
+    helper.post_message_to_slack(dialog, message_type='dialog')

@@ -1,9 +1,5 @@
 from standup_bot.constants import INVALID_INPUT_MESSAGE
-from standup_bot.helpers import (
-    get_standup_channel,
-    post_message_to_slack,
-    get_standup_report_attachments
-)
+from standup_bot.helpers import StandupBotHelper
 from standup_bot.redis_helper import (
     save_standup_update_to_redis,
     get_standup_completed_state
@@ -13,6 +9,7 @@ from standup_bot.redis_helper import (
 
 def submit_standup(payload, redis_client, echo=False):
     standup_name = payload.get('state')
+    helper = StandupBotHelper()
     if not redis_client:
         immediately_post_update(payload)
     else:
@@ -28,8 +25,8 @@ def submit_standup(payload, redis_client, echo=False):
         if echo:
             immediately_post_update(payload, user_channel)
 
-        standup_channel = get_standup_channel(standup_name)
-        post_message_to_slack({
+        standup_channel = helper.get_standup_channel(standup_name)
+        helper.post_message_to_slack({
             'channel': user_channel,
             'text': "Stand up will be posted to *#{}* :tada:".format(standup_channel)
         })
@@ -39,15 +36,16 @@ def submit_standup(payload, redis_client, echo=False):
 
 def immediately_post_update(payload, override_channel=None):
     standup_name = payload.get('state')
-    channel = get_standup_channel(standup_name)
+    helper = StandupBotHelper()
+    channel = helper.get_standup_channel(standup_name)
     user = payload.get('user').get('id')
     username_info = "<@" + user + ">"
 
-    attachments = get_standup_report_attachments(payload.get('submission').items())
+    attachments = helper.get_standup_report_attachments(payload.get('submission').items())
 
     data = {
         'channel': override_channel or channel,
         'text': username_info,
         'attachments': attachments
     }
-    post_message_to_slack(data)
+    helper.post_message_to_slack(data)
