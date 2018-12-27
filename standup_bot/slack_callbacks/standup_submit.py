@@ -1,10 +1,5 @@
 from standup_bot.constants import INVALID_INPUT_MESSAGE
 from standup_bot.helpers import StandupBotHelper
-from standup_bot.redis_helper import (
-    save_standup_update_to_redis,
-    get_standup_completed_state
-)
-
 
 
 def submit_standup(payload, redis_client, echo=False):
@@ -19,8 +14,8 @@ def submit_standup(payload, redis_client, echo=False):
         userid = payload.get('user').get('id')
         submission = payload.get('submission').items()
         standup_name = payload.get('state')
-        save_standup_update_to_redis(standup_name, userid, submission, redis_client)
-        if get_standup_completed_state(standup_name, redis_client):
+        redis_client.save_standup_update_to_redis(standup_name, userid, submission)
+        if redis_client.get_standup_completed_state(standup_name):
             immediately_post_update(payload)
         if echo:
             immediately_post_update(payload, user_channel)

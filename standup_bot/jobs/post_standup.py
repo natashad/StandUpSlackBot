@@ -1,6 +1,5 @@
-import redis
-
 from standup_bot.jobs.base_job import BaseJob
+from standup_bot.redis_client import RedisClient
 from standup_bot.helpers import StandupBotHelper
 
 
@@ -9,7 +8,7 @@ class PostStandupJob(BaseJob):
         helper = StandupBotHelper(config)
         redis_client = None
         if config.get('REDIS_URL'):
-            redis_client = redis.from_url(config.get('REDIS_URL'))
+            redis_client = RedisClient(config)
 
         helper.post_standup_report(standup_name, redis_client)
 

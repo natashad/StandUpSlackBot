@@ -5,10 +5,6 @@ from standup_bot.constants import (
     POST_MESSAGE_ENDPOINT,
     DIALOG_OPEN_ENDPOINT,
 )
-from standup_bot.redis_helper import (
-    get_standup_report_for_team,
-    save_standup_completed_state
-)
 
 
 class StandupBotHelper():
@@ -61,11 +57,12 @@ class StandupBotHelper():
             return
 
         channel = self.get_standup_channel(standup_name)
-        standup_reports = get_standup_report_for_team(standup_name, redis_client)
+        standup_reports = redis_client.get_standup_report_for_team(standup_name)
 
         self.post_initial_standup_report_message(channel, len(standup_reports))
 
         if not standup_reports:
+            redis_client.save_standup_completed_state(standup_name)
             return
 
         self.post_message_to_slack({
@@ -93,7 +90,7 @@ class StandupBotHelper():
             self.post_message_to_slack(data)
 
         self.post_skipped_standup_message(channel, skipped_list)
-        save_standup_completed_state(standup_name, redis_client)
+        redis_client.save_standup_completed_state(standup_name)
 
     def post_message_to_slack(self, data, message_type='message'):
         headers = {

@@ -16,7 +16,7 @@ class BaseTest():
             'SLACKBOT_SIGNING_SECRET': 'slackbot_signing_sekret',
             'SLACKBOT_AUTH_TOKEN': 'slackbot_auth_token',
             'STANDUPS': json.dumps(standup_conf),
-            'REDIS_URL': '',
+            'REDIS_URL': 'fake_redis_url',
             'ECHO_STANDUP_REPORT': False
         }
 
