@@ -20,7 +20,7 @@ class BaseTest():
             'SLACKBOT_AUTH_TOKEN': 'slackbot_auth_token',
             'STANDUPS': json.dumps(standup_conf),
             'REDIS_URL': 'fake_redis_url',
-            'ECHO_STANDUP_REPORT': False
+            'ECHO_STANDUP_REPORT': True
         }
 
     def teardown(self):
