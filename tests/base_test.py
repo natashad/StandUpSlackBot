@@ -8,7 +8,10 @@ class BaseTest():
             'test_standup': {
                 'team': ['USER1TEST', 'USER2TEST'],
                 'channel': 'testchannel',
-                'questions': ['Question1', 'Question2', 'Question3']
+                'questions': [
+                    'Question1',
+                    'A very long question that is over the character limit'
+                ]
             }
 
         }
