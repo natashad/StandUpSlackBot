@@ -1,13 +1,6 @@
 import json
 
-from standup_bot.helpers import (
-    post_message_to_slack,
-    get_standup_questions
-)
-from standup_bot.redis_helper import (
-    save_standup_update_to_redis,
-    get_standup_report_for_user
-)
+from standup_bot.helpers import StandupBotHelper
 from standup_bot.constants import (
     DIALOG_LABEL_MAX_LENGTH,
     INVALID_INPUT_MESSAGE,
@@ -15,7 +8,7 @@ from standup_bot.constants import (
 )
 
 
-def trigger_standup(payload, redis_client=None):
+def trigger_standup(payload, redis_client=None, config=None):
     trigger_id = payload.get('trigger_id')
     action = payload.get('actions')[0]
     standup_name = action.get('name')
@@ -23,25 +16,26 @@ def trigger_standup(payload, redis_client=None):
 
     if action.get('value') == 'skip':
         if redis_client:
-            save_standup_update_to_redis(standup_name, user_id, [], redis_client)
+            redis_client.save_standup_update_to_redis(standup_name, user_id, [])
         return SKIP_MESSAGE
     if action.get('value') == 'open_dialog':
-        post_standup_dialog_modal(trigger_id, user_id, standup_name, redis_client)
+        post_standup_dialog_modal(trigger_id, user_id, standup_name, redis_client, config)
         return ""
 
     return INVALID_INPUT_MESSAGE
 
 
 # Helpers
-def post_standup_dialog_modal(trigger_id, user_id, standup_name, redis_client):
+def post_standup_dialog_modal(trigger_id, user_id, standup_name, redis_client, config):
     elements = []
     report = []
+    helper = StandupBotHelper(config)
     if redis_client:
-        previously_entered_standup = get_standup_report_for_user(standup_name, user_id, redis_client)
+        previously_entered_standup = redis_client.get_standup_report_for_user(standup_name, user_id)
         if previously_entered_standup:
             report = json.loads(previously_entered_standup)
 
-    for question in get_standup_questions(standup_name):
+    for question in helper.get_standup_questions(standup_name):
         truncated_question = question
         if len(truncated_question) > DIALOG_LABEL_MAX_LENGTH:
             truncated_question = question[0:DIALOG_LABEL_MAX_LENGTH-3] + '...'
@@ -69,4 +63,4 @@ def post_standup_dialog_modal(trigger_id, user_id, standup_name, redis_client):
             "elements": elements
         }
     }
-    post_message_to_slack(dialog, message_type='dialog')
+    helper.post_message_to_slack(dialog, message_type='dialog')
